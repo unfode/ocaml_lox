@@ -1,0 +1,18 @@
+fun high(n) {
+
+    fun low() {
+        print n;
+    }
+
+    return low;
+}
+
+high(10)();
+
+fun do(f, a) {
+    return f(a);
+}
+
+fun add1(n) {return n + 1;}
+
+print do(add1, 1);
