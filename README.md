@@ -27,3 +27,7 @@ Starting with the source code (type `string`), we
 1. scan (function `scan()`) the source code into tokens (type `token_t list`)
 2. parse (function `parse()`) the tokens into statements (type `statement_t list`)
 3. interpret (function `execute_statements()`) the statements
+
+This implementation follows most of the implementation in [*Crafting Interpreters*](https://craftinginterpreters.com/), except
+
++ It doesn't use a resolver. Instead, it creates a new environment when a new variable is declared.
