@@ -91,6 +91,15 @@ let token_kind_to_string (token_kind: token_kind_e) : string = (
 
 let token_to_string (token: token_t) : string = token_kind_to_string token.kind
 
+let rec print_token_list (tokens: token_t list) = (
+  match tokens with
+  | [] -> ()
+  | token :: rest_tokens ->
+    print_string (token_to_string token);
+    print_string " ";
+    print_token_list rest_tokens
+)
+
 type scan_result_e =
 | Error
 | Correct of token_t list (* tokens we get *)

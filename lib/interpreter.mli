@@ -1,5 +1,6 @@
 type token_t
 val token_to_string : token_t -> string
+val print_token_list : token_t list -> unit
 
 type scan_result_e =
 | Error
