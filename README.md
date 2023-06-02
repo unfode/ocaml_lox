@@ -12,10 +12,10 @@ dune build --profile release
 
 Then you are expected to find the executable file at `./_build/default/bin/main.exe`.
 
-To scan, parse, and interpret a lox script, run
+To scan, parse, and interpret a lox script (e.g., `./lox-scripts/factorial.lox`), run
 
 ```shell
-./_build/default/bin/main.exe <script path>
+./_build/default/bin/main.exe ./lox-scripts/factorial.lox
 ```
 
-You can find some Lox scripts in `./lox-scripts`.
+You can find some simple Lox scripts in `./lox-scripts`.
