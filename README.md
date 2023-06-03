@@ -31,3 +31,4 @@ Starting with the source code (type `string`), we
 This implementation follows most of the implementation in [*Crafting Interpreters*](https://craftinginterpreters.com/), except
 
 + It doesn't use a resolver. Instead, it creates a new environment when a new variable is declared.
++ Classes are not yet implemented.
