@@ -22,6 +22,8 @@ You can find some simple Lox scripts in `./lox-scripts`.
 
 ## Implementation Overview
 
+The meat of this interpreter is in `./lib/interpreter.ml`.
+
 Starting with the source code (type `string`), we
 
 1. scan (function `scan()`) the source code into tokens (type `token_t list`)
