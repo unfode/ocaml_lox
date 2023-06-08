@@ -1431,10 +1431,11 @@ and statement (tokens: token_t list) : parse_statement_result_e = (
     | While -> while_statement tokens
     | Left_brace -> block_statement tokens
     | Return -> return_statement tokens
+    | Fun | Var -> failwith "fun and var should have been handled"
     | Left_parenthesis|Right_parenthesis|Right_brace|Comma|Dot|Minus|Plus|
       Semicolon|Slash|Star|Bang|Bang_equal|Equal|Equal_equal|Greater|Greater_equal|
-      Less|Less_equal|And|Class|Else|False|Fun|For|Nil|Or|Super|This|True|Var|
-      Identifier _|String _|Number _ -> expression_statement tokens
+      Less|Less_equal|And|Class|Else|False|For|Nil|Or|Super|This|True|Identifier _|
+      String _|Number _ -> expression_statement tokens
   )
 )
 and declaration (tokens: token_t list) : parse_statement_result_e = (
