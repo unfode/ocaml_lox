@@ -470,7 +470,7 @@ type identifier_t = {
   name: string;
 }
 
-type binary_expression_kind_e = 
+type non_short_circuit_expression_kind_e =
 | Plus
 | Minus
 | Divide
@@ -482,9 +482,13 @@ type binary_expression_kind_e =
 | Not_equal
 | Equal
 
-type logical_expression_kind_e =
+type short_circuit_expression_kind_e =
 | And
 | Or
+
+type binary_expression_kind_e =
+| Non_short_circuit of non_short_circuit_expression_kind_e
+| Short_circuit of short_circuit_expression_kind_e
 
 type unary_expression_kind_e =
 | Not 
@@ -495,10 +499,10 @@ type binary_expression_t = {
   right: expression_t;
   kind: binary_expression_kind_e;
 }
-and logical_expression_t = {
+and short_circuit_expression_t = {
   left: expression_t;
   right: expression_t;
-  kind: logical_expression_kind_e;
+  kind: short_circuit_expression_kind_e;
 }
 and unary_expression_t = {
   operand: expression_t;
@@ -506,7 +510,6 @@ and unary_expression_t = {
 }
 and expression_kind_e =
 | Binary of binary_expression_t
-| Logical of logical_expression_t
 | Unary of unary_expression_t
 | Number of float
 | String of string
@@ -608,20 +611,26 @@ and call_loop (tokens: token_t list) (callee: expression_t) : parse_expression_r
         | [] -> Error
         | token :: rest_tokens -> (
           match token.kind with
-          | Right_parenthesis -> call_loop rest_tokens {
-            position = left_parenthesis_token.position;
-            kind = Call (callee, [])
-          }
+          | Right_parenthesis ->
+            call_loop
+              rest_tokens
+              {
+                position = left_parenthesis_token.position;
+                kind = Call (callee, [])
+              }
           | Left_parenthesis|Left_brace|Right_brace|Comma|Dot|Minus|Plus|Semicolon|
             Slash|Star|Bang|Bang_equal|Equal|Equal_equal|Greater|Greater_equal|Less|
             Less_equal|And|Class|Else|False|Fun|For|If|Nil|Or|Print|Return|Super|This|True|Var|
             While|Identifier _|String _|Number _ -> (
               match argument_list (token :: rest_tokens) with
               | Error -> Error
-              | Correct (arguments, rest_tokens) -> call_loop rest_tokens {
-                position = left_parenthesis_token.position;
-                kind = Call (callee, arguments)
-              }
+              | Correct (arguments, rest_tokens) ->
+                call_loop
+                  rest_tokens
+                  {
+                    position = left_parenthesis_token.position;
+                    kind = Call (callee, arguments)
+                  }
             )
         )
       )
@@ -645,7 +654,7 @@ and unary (tokens: token_t list) : parse_expression_result_e = (
     | Bang -> (
       match unary rest_tokens with
       | Error -> Error
-      | Correct (operand_expression, rest_rest_tokens) -> Correct(
+      | Correct (operand_expression, rest_rest_tokens) -> Correct (
         {
           position = token.position;
           kind = Unary {
@@ -692,7 +701,7 @@ and factor_loop (tokens: token_t list) (left_expression: expression_t) : parse_e
             kind = Binary {
               left = left_expression;
               right = right_expression;
-              kind = Divide
+              kind = Non_short_circuit Divide
             }
           }
     )
@@ -707,7 +716,7 @@ and factor_loop (tokens: token_t list) (left_expression: expression_t) : parse_e
             kind = Binary {
               left = left_expression;
               right = right_expression;
-              kind = Multiply
+              kind = Non_short_circuit Multiply
             }
           }
     )
@@ -739,7 +748,7 @@ and term_loop (tokens: token_t list) (left_expression: expression_t) : parse_exp
             kind = Binary {
               left = left_expression;
               right = right_expression;
-              kind = Plus
+              kind = Non_short_circuit Plus
             }
           }
     )
@@ -754,7 +763,7 @@ and term_loop (tokens: token_t list) (left_expression: expression_t) : parse_exp
             kind = Binary {
               left = left_expression;
               right = right_expression;
-              kind = Minus
+              kind = Non_short_circuit Minus
             }
           }
     )
@@ -786,7 +795,7 @@ and comparison_loop (tokens: token_t list) (left_expression: expression_t) : par
             kind = Binary {
               left = left_expression;
               right = right_expression;
-              kind = Greater
+              kind = Non_short_circuit Greater
             }
           }
     )
@@ -801,7 +810,7 @@ and comparison_loop (tokens: token_t list) (left_expression: expression_t) : par
             kind = Binary {
               left = left_expression;
               right = right_expression;
-              kind = Greater_equal
+              kind = Non_short_circuit Greater_equal
             }
           }
     )
@@ -813,10 +822,10 @@ and comparison_loop (tokens: token_t list) (left_expression: expression_t) : par
           rest_rest_tokens
           {
             position = token.position;
-            kind = Binary{
+            kind = Binary {
               left = left_expression;
               right = right_expression;
-              kind = Less
+              kind = Non_short_circuit Less
             }
           }
     )
@@ -828,10 +837,10 @@ and comparison_loop (tokens: token_t list) (left_expression: expression_t) : par
           rest_rest_tokens
           {
             position = token.position;
-            kind = Binary{
+            kind = Binary {
               left = left_expression;
               right = right_expression;
-              kind = Less_equal
+              kind = Non_short_circuit Less_equal
             }
           }
     )
@@ -856,13 +865,31 @@ and equality_loop (tokens: token_t list) (left_expression: expression_t) : parse
       match comparison tokens with
       | Error -> Error
       | Correct (right_expression, tokens) ->
-        equality_loop tokens {position = token.position; kind = Binary {left = left_expression; right = right_expression; kind = Not_equal}}
+        equality_loop
+          tokens
+          {
+            position = token.position;
+            kind = Binary {
+              left = left_expression;
+              right = right_expression;
+              kind = Non_short_circuit Not_equal
+            }
+          }
     )
     | Equal_equal -> (
       match comparison tokens with
       | Error -> Error
       | Correct(right_expression, tokens) ->
-        equality_loop tokens {position = token.position; kind = Binary {left = left_expression; right = right_expression; kind = Equal}}
+        equality_loop
+          tokens
+          {
+            position = token.position;
+            kind = Binary {
+              left = left_expression;
+              right = right_expression;
+              kind = Non_short_circuit Equal
+            }
+          }
     )
     | Left_parenthesis|Right_parenthesis|Left_brace|Right_brace|Comma|Dot|Minus|
       Plus|Semicolon|Slash|Star|Bang|Equal|Greater|Greater_equal|Less|Less_equal|
@@ -886,7 +913,16 @@ and logic_and_loop (tokens: token_t list) (left_expression: expression_t) : pars
         match equality tokens with
         | Error -> Error
         | Correct (right_expression, tokens) ->
-          equality_loop tokens {position = and_token.position; kind = Logical {left = left_expression; right = right_expression; kind = And}}
+          logic_and_loop
+            tokens
+            {
+              position = and_token.position;
+              kind = Binary {
+                left = left_expression;
+                right = right_expression;
+                kind = Short_circuit And
+              }
+            }
       )
     )
     | Left_parenthesis|Right_parenthesis|Left_brace|Right_brace|Comma|Dot|Minus|
@@ -910,7 +946,16 @@ and logic_or_loop (tokens: token_t list) (left_expression: expression_t) : parse
         match logic_and tokens with
         | Error -> Error
         | Correct (right_expression, tokens) ->
-          equality_loop tokens {position = or_token.position; kind = Logical {left = left_expression; right = right_expression; kind = Or}}
+          logic_or_loop
+            tokens
+            {
+              position = or_token.position;
+              kind = Binary {
+                left = left_expression;
+                right = right_expression;
+                kind = Short_circuit Or
+              }
+            }
       )
     )
     | Left_parenthesis|Right_parenthesis|Left_brace|Right_brace|Comma|Dot|Minus|
@@ -1487,8 +1532,6 @@ let value_to_string (value: value_e) : string = (
   | Function _ -> "#function"
 )
 
-
-
 let create_new_environment (enclosing: environment_t option) = {
   enclosing = enclosing;
   map = Hashtbl.create 10;
@@ -1550,149 +1593,152 @@ let rec bind (name_value_pairs: (string * value_e) list) (map: (string, value_e 
   )
 )
 
-let rec evaluate_expression (expression: expression_t) (environment: environment_t) : evaluate_expression_result_e = (
+let rec evaluate_expression_in_environment (expression: expression_t) (environment: environment_t) : evaluate_expression_result_e = (
   match expression.kind with
   | Binary binary_expression -> (
-    match evaluate_expression binary_expression.left environment with
-    | Error -> Error
-    | Correct left_operand -> (
-      match evaluate_expression binary_expression.right environment with
+    match binary_expression.kind with
+    | Non_short_circuit non_short_circuit_expression_kind -> (
+      match evaluate_expression_in_environment binary_expression.left environment with
       | Error -> Error
-      | Correct right_operand -> (
-        match binary_expression.kind with
-        | Plus -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Number (left_value +. right_value))
-            | Nil|String _|Bool _|Function _ -> Error
-          )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Minus -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Number (left_value -. right_value))
-            | Nil|String _|Bool _|Function _ -> Error
-          )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Divide -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> (
-              if right_value != 0. then Correct (Number (left_value /. right_value))
-              else Error
+      | Correct left_operand -> (
+        match evaluate_expression_in_environment binary_expression.right environment with
+        | Error -> Error
+        | Correct right_operand -> (
+          match non_short_circuit_expression_kind with
+          | Plus -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Number (left_value +. right_value))
+              | Nil|String _|Bool _|Function _ -> Error
             )
             | Nil|String _|Bool _|Function _ -> Error
           )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Multiply -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Number (left_value *. right_value))
+          | Minus -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Number (left_value -. right_value))
+              | Nil|String _|Bool _|Function _ -> Error
+            )
             | Nil|String _|Bool _|Function _ -> Error
           )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Greater -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Bool (left_value > right_value))
+          | Divide -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> (
+                if right_value != 0. then Correct (Number (left_value /. right_value))
+                else Error
+              )
+              | Nil|String _|Bool _|Function _ -> Error
+            )
             | Nil|String _|Bool _|Function _ -> Error
           )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Greater_equal -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Bool (left_value >= right_value))
+          | Multiply -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Number (left_value *. right_value))
+              | Nil|String _|Bool _|Function _ -> Error
+            )
             | Nil|String _|Bool _|Function _ -> Error
           )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Less -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Bool (left_value < right_value))
+          | Greater -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Bool (left_value > right_value))
+              | Nil|String _|Bool _|Function _ -> Error
+            )
             | Nil|String _|Bool _|Function _ -> Error
           )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Less_equal -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Bool (left_value <= right_value))
+          | Greater_equal -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Bool (left_value >= right_value))
+              | Nil|String _|Bool _|Function _ -> Error
+            )
             | Nil|String _|Bool _|Function _ -> Error
           )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Not_equal -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Bool (left_value <> right_value))
+          | Less -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Bool (left_value < right_value))
+              | Nil|String _|Bool _|Function _ -> Error
+            )
             | Nil|String _|Bool _|Function _ -> Error
           )
-          | Nil|String _|Bool _|Function _ -> Error
-        )
-        | Equal -> (
-          match left_operand with
-          | Number left_value -> (
-            match right_operand with
-            | Number right_value -> Correct (Bool (left_value = right_value))
+          | Less_equal -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Bool (left_value <= right_value))
+              | Nil|String _|Bool _|Function _ -> Error
+            )
             | Nil|String _|Bool _|Function _ -> Error
           )
-          | Nil|String _|Bool _|Function _ -> Error
+          | Not_equal -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Bool (left_value <> right_value))
+              | Nil|String _|Bool _|Function _ -> Error
+            )
+            | Nil|String _|Bool _|Function _ -> Error
+          )
+          | Equal -> (
+            match left_operand with
+            | Number left_value -> (
+              match right_operand with
+              | Number right_value -> Correct (Bool (left_value = right_value))
+              | Nil|String _|Bool _|Function _ -> Error
+            )
+            | Nil|String _|Bool _|Function _ -> Error
+          )
         )
       )
     )
-  )
-  | Logical logical_expression -> (
-    match evaluate_expression logical_expression.left environment with
-    | Error -> Error
-    | Correct left_operand -> (
-      match left_operand with
-      | Bool left_value -> (
-        match logical_expression.kind with
-        | And -> (
-          if not left_value then Correct (Bool false)
-          else (
-            match evaluate_expression logical_expression.right environment with
-            | Error -> Error
-            | Correct right_operand -> (
-              match right_operand with
-              | Bool right_value -> Correct (Bool right_value)
-              | Nil|Number _|String _|Function _ -> Error
+    | Short_circuit short_circuit_expression_kind -> (
+      match evaluate_expression_in_environment binary_expression.left environment with
+      | Error -> Error
+      | Correct left_operand -> (
+        match left_operand with
+        | Bool left_value -> (
+          match short_circuit_expression_kind with
+          | And -> (
+            if not left_value then Correct (Bool false)
+            else (
+              match evaluate_expression_in_environment binary_expression.right environment with
+              | Error -> Error
+              | Correct right_operand -> (
+                match right_operand with
+                | Bool right_value -> Correct (Bool right_value)
+                | Nil|Number _|String _|Function _ -> Error
+              )
+            )
+          )
+          | Or -> (
+            if left_value then Correct (Bool true)
+            else (
+              match evaluate_expression_in_environment binary_expression.right environment with
+              | Error -> Error
+              | Correct right_operand -> (
+                match right_operand with
+                | Bool right_value -> Correct (Bool right_value)
+                | Nil|Number _|String _|Function _ -> Error
+              )
             )
           )
         )
-        | Or -> (
-          if left_value then Correct (Bool true)
-          else (
-            match evaluate_expression logical_expression.right environment with
-            | Error -> Error
-            | Correct right_operand -> (
-              match right_operand with
-              | Bool right_value -> Correct (Bool right_value)
-              | Nil|Number _|String _|Function _ -> Error
-            )
-          )
-        )
+        | Nil|Number _|String _|Function _ -> Error
       )
-      | Nil|Number _|String _|Function _ -> Error
     )
   )
   | Unary unary_expression -> (
-    match evaluate_expression unary_expression.operand environment with
+    match evaluate_expression_in_environment unary_expression.operand environment with
     | Error -> Error
     | Correct operand -> (
       match operand with
@@ -1714,14 +1760,14 @@ let rec evaluate_expression (expression: expression_t) (environment: environment
   | True -> Correct (Bool true)
   | False -> Correct (Bool false)
   | Nil -> Correct Nil
-  | Grouping expression -> evaluate_expression expression environment
+  | Grouping expression -> evaluate_expression_in_environment expression environment
   | Variable name -> (
     match get_variable_value environment name with
     | None -> Error
     | Some value -> Correct value
   )
   | Assign (identifier, assigned_expression) -> (
-    match evaluate_expression assigned_expression environment with
+    match evaluate_expression_in_environment assigned_expression environment with
     | Error -> Error
     | Correct value -> (
       if set_variable_value environment identifier.name value then
@@ -1730,7 +1776,7 @@ let rec evaluate_expression (expression: expression_t) (environment: environment
     )
   )
   | Call (callee, arguments) -> (
-    match evaluate_expression callee environment with
+    match evaluate_expression_in_environment callee environment with
     | Error -> Error
     | Correct callee_value -> (
       match callee_value with
@@ -1773,7 +1819,7 @@ and execute_statement_in_function (statement: statement_t) (environment: environ
     | Return return_value -> Return return_value
   )
   | Expression expression -> (
-    match evaluate_expression expression environment with
+    match evaluate_expression_in_environment expression environment with
     | Error -> Error
     | Correct _ -> Non_return environment
   )
@@ -1788,7 +1834,7 @@ and execute_statement_in_function (statement: statement_t) (environment: environ
     )
   )
   | If (condition, then_branch, else_branch_option) -> (
-    match evaluate_expression condition environment with
+    match evaluate_expression_in_environment condition environment with
     | Error -> Error
     | Correct value -> (
       match value with
@@ -1813,7 +1859,7 @@ and execute_statement_in_function (statement: statement_t) (environment: environ
     )
   )
   | Print expression -> (
-    match evaluate_expression expression environment with
+    match evaluate_expression_in_environment expression environment with
     | Error -> Error
     | Correct value -> (
       print_endline (value_to_string value);
@@ -1824,7 +1870,7 @@ and execute_statement_in_function (statement: statement_t) (environment: environ
     match expression_option with
     | None -> Return Nil
     | Some expression -> (
-      match evaluate_expression expression environment with
+      match evaluate_expression_in_environment expression environment with
       | Error -> Error
       | Correct value -> Return value
     )
@@ -1837,7 +1883,7 @@ and execute_statement_in_function (statement: statement_t) (environment: environ
         Non_return new_environment
       )
       | Some initializer_expression -> (
-        match evaluate_expression initializer_expression environment with
+        match evaluate_expression_in_environment initializer_expression environment with
         | Error -> Error
         | Correct value -> (
           Hashtbl.add new_environment.map identifier.name (Some value);
@@ -1854,7 +1900,7 @@ and execute_statement_in_function (statement: statement_t) (environment: environ
   )
 )
 and while_loop_in_function (condition: expression_t) (body: statement_t) (environment: environment_t) : while_loop_in_function_result_e = (
-  match evaluate_expression condition environment with
+  match evaluate_expression_in_environment condition environment with
   | Error -> Error
   | Correct value -> (
     match value with
@@ -1873,7 +1919,7 @@ and evaluate_expressions (expressions: expression_t list) (environment: environm
   match expressions with
   | [] -> Correct []
   | expression :: rest_expressions -> (
-    match evaluate_expression expression environment with
+    match evaluate_expression_in_environment expression environment with
     | Error -> Error
     | Correct value -> (
       match evaluate_expressions rest_expressions environment with
@@ -1883,13 +1929,13 @@ and evaluate_expressions (expressions: expression_t list) (environment: environm
   )
 )
 and while_loop (condition: expression_t) (body: statement_t) (environment: environment_t) : while_loop_result_e = (
-  match evaluate_expression condition environment with
+  match evaluate_expression_in_environment condition environment with
   | Error -> Error
   | Correct value -> (
     match value with
     | Bool value -> (
       if value then (
-        match execute_statement body environment with
+        match execute_statement_in_environment body environment with
         | Error -> Error
         | Correct _ -> while_loop condition body environment
       ) else Correct
@@ -1897,15 +1943,15 @@ and while_loop (condition: expression_t) (body: statement_t) (environment: envir
     | Nil|Number _|String _|Function _ -> Error
   )
 )
-and execute_statement (statement: statement_t) (environment: environment_t) : execute_statement_result_e = (
+and execute_statement_in_environment (statement: statement_t) (environment: environment_t) : execute_statement_result_e = (
   match statement.kind with
   | Block statements -> (
-    match execute_statements_helper statements (create_new_environment (Some environment)) with
+    match execute_statements_in_environment statements (create_new_environment (Some environment)) with
     | Error -> Error
     | Correct _ -> Correct environment
   )
   | Expression expression -> (
-    match evaluate_expression expression environment with
+    match evaluate_expression_in_environment expression environment with
     | Error -> Error
     | Correct _ -> Correct environment
   )
@@ -1926,20 +1972,20 @@ and execute_statement (statement: statement_t) (environment: environment_t) : ex
     Correct environment
   )
   | If (condition, then_branch, else_branch_option) -> (
-    match evaluate_expression condition environment with
+    match evaluate_expression_in_environment condition environment with
     | Error -> Error
     | Correct value -> (
       match value with
       | Bool value -> (
         if value then (
-          match execute_statement then_branch environment with
+          match execute_statement_in_environment then_branch environment with
           | Error -> Error
           | Correct _ -> Correct environment
         ) else (
           match else_branch_option with
           | None -> Correct environment
           | Some else_branch -> (
-            match execute_statement else_branch environment with
+            match execute_statement_in_environment else_branch environment with
             | Error -> Error
             | Correct _ -> Correct environment
           )
@@ -1949,7 +1995,7 @@ and execute_statement (statement: statement_t) (environment: environment_t) : ex
     )
   )
   | Print expression -> (
-    match evaluate_expression expression environment with
+    match evaluate_expression_in_environment expression environment with
     | Error -> Error
     | Correct value -> (
       print_endline (value_to_string value);
@@ -1965,7 +2011,7 @@ and execute_statement (statement: statement_t) (environment: environment_t) : ex
         Correct new_environment
       )
       | Some initializer_expression -> (
-        match evaluate_expression initializer_expression environment with
+        match evaluate_expression_in_environment initializer_expression environment with
         | Error -> Error
         | Correct value -> (
           Hashtbl.add new_environment.map identifier.name (Some value);
@@ -1980,13 +2026,13 @@ and execute_statement (statement: statement_t) (environment: environment_t) : ex
     | Correct -> Correct environment
   )
 )
-and execute_statements_helper (statements: statement_t list) (environment: environment_t) : execute_statement_result_e = (
+and execute_statements_in_environment (statements: statement_t list) (environment: environment_t) : execute_statement_result_e = (
   match statements with
   | [] -> Correct environment
-  | statement :: statements -> (
-    match execute_statement statement environment with
+  | statement :: rest_statements -> (
+    match execute_statement_in_environment statement environment with
     | Error -> Error
-    | Correct new_environment -> execute_statements_helper statements new_environment
+    | Correct new_environment -> execute_statements_in_environment rest_statements new_environment
   )
 )
 
@@ -1994,7 +2040,7 @@ type execute_statements_result_e =
 | Error
 | Correct
 let execute_statements (statements: statement_t list) : execute_statements_result_e = (
-  match execute_statements_helper statements (create_new_environment None) with
+  match execute_statements_in_environment statements (create_new_environment None) with
   | Error -> Error
   | Correct _ -> Correct
 )
